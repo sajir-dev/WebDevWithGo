@@ -7,6 +7,8 @@ import (
 	"text/template"
 )
 
+var tpl *template.Template
+
 type sage struct {
 	Name  string
 	Motto string
@@ -18,9 +20,8 @@ var fm = template.FuncMap{
 	"ft": firstThree,
 }
 
-var tpl *template.Template
-
 func init() {
+	// tpl = template.Must(template.New("").Funcs(fm).ParseFiles("tpl.gohtml"))
 	tpl = template.Must(template.New("").Funcs(fm).ParseFiles("tpl.gohtml"))
 }
 
@@ -48,10 +49,9 @@ func main() {
 
 	sages := []sage{b, g, m}
 
-	err := tpl.Execute(os.Stdout, sages)
+	// Execute and ExecuteTemplates are completely different and dont fall for that error again
+	err := tpl.ExecuteTemplate(os.Stdout, "tpl.gohtml", sages)
 	if err != nil {
 		log.Fatalln(err)
 	}
 }
-
-// not working
