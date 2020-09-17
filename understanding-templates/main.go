@@ -42,3 +42,4 @@ func main() {
 
 	io.Copy(nf, strings.NewReader(tpl))
 }
+
