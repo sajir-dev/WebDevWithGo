@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	li, err := net.Listen("tcp", ":8080")
+	li, err := net.Listen("tcp", ":3030")
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -26,12 +26,12 @@ func main() {
 func handle(conn net.Conn) {
 	scanner := bufio.NewScanner(conn)
 	for scanner.Scan() {
-		ln := scanner.Text
+		ln := scanner.Text()
 		fmt.Println(ln)
 	}
 	defer conn.Close()
 
-	// We never get here
+	// We never get here Edit: we get here, only when the program closes
 	// We have an open stream connection
 	// How does the above reader know when it is done
 }
