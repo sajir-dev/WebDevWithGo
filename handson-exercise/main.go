@@ -20,6 +20,7 @@ func main() {
 		if err != nil {
 			log.Fatalln(err.Error())
 		}
+
 		go handle(conn)
 	}
 }
@@ -27,11 +28,9 @@ func main() {
 func handle(conn net.Conn) {
 	defer conn.Close()
 
-	// read request
 	request(conn)
 
-	// write response
-	respond(conn)
+	response(conn)
 }
 
 func request(conn net.Conn) {
@@ -41,9 +40,8 @@ func request(conn net.Conn) {
 		ln := scanner.Text()
 		fmt.Println(ln)
 		if i == 0 {
-			// request line
-			m := strings.Fields(ln)[0]
-			fmt.Println("***METHOD***", m)
+			m := strings.Fields(ln)
+			fmt.Println("***METHOD***", len(m))
 		}
 		if ln == "" {
 			// blank line means headers are done
@@ -53,7 +51,7 @@ func request(conn net.Conn) {
 	}
 }
 
-func respond(conn net.Conn) {
+func response(conn net.Conn) {
 	body := `<!DOCTYPE html>
 	<html>
 	<head>

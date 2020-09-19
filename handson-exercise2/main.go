@@ -20,6 +20,7 @@ func main() {
 		if err != nil {
 			log.Fatalln(err.Error())
 		}
+
 		go handle(conn)
 	}
 }
@@ -27,11 +28,9 @@ func main() {
 func handle(conn net.Conn) {
 	defer conn.Close()
 
-	// read request
 	request(conn)
 
-	// write response
-	respond(conn)
+	// response(conn)
 }
 
 func request(conn net.Conn) {
@@ -41,9 +40,14 @@ func request(conn net.Conn) {
 		ln := scanner.Text()
 		fmt.Println(ln)
 		if i == 0 {
-			// request line
-			m := strings.Fields(ln)[0]
-			fmt.Println("***METHOD***", m)
+			m := strings.Fields(ln)
+			// fmt.Println("***METHOD***", len(m))
+			if m[1] == "/" {
+				response1(conn)
+			}
+			if m[1] == "/next" {
+				response2(conn)
+			}
 		}
 		if ln == "" {
 			// blank line means headers are done
@@ -53,7 +57,7 @@ func request(conn net.Conn) {
 	}
 }
 
-func respond(conn net.Conn) {
+func response1(conn net.Conn) {
 	body := `<!DOCTYPE html>
 	<html>
 	<head>
@@ -61,6 +65,24 @@ func respond(conn net.Conn) {
 	</head>
 	<body>
 	Hello world	
+	</body>
+	</html>`
+
+	fmt.Fprint(conn, "HTTP/1.1 200 OK\r\n")
+	fmt.Fprintf(conn, "Content-Length: %d\r\n", len(body))
+	fmt.Fprint(conn, "Content-Type: text/html \r\n")
+	fmt.Fprint(conn, "\r\n")
+	fmt.Fprint(conn, body)
+}
+
+func response2(conn net.Conn) {
+	body := `<!DOCTYPE html>
+	<html>
+	<head>
+	<title>Page Title</title>
+	</head>
+	<body>
+	Hello to the next world	
 	</body>
 	</html>`
 
