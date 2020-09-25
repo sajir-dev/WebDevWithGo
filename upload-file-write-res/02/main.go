@@ -2,11 +2,18 @@ package main
 
 import (
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
 )
+
+var tpl *template.Template
+
+func init() {
+	tpl = template.Must(template.ParseGlob("templates/*"))
+}
 
 func main() {
 	http.HandleFunc("/", foo)
@@ -15,7 +22,7 @@ func main() {
 }
 
 func foo(res http.ResponseWriter, req *http.Request) {
-	// s := ""
+	var s string
 	fmt.Println(req.Method)
 	if req.Method == http.MethodPost {
 		// open the file
@@ -37,7 +44,8 @@ func foo(res http.ResponseWriter, req *http.Request) {
 		s = string(bs)
 
 		// store on server
-		dst, err := os.Create(filepath.Join("./user/", h.FileName))
+		dst, err := os.Create(filepath.Join("./user/", h.Filename))
+		// dst, err := os.Create(filepath.Join("./user/", h.Filename))
 		if err != nil {
 			http.Error(res, err.Error(), http.StatusInternalServerError)
 			return
