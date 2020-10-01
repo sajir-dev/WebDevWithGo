@@ -1,11 +1,16 @@
 package main
 
 import (
+	"crypto/sha1"
+	"fmt"
 	"html/template"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
-	"github.com/google/uuid"
+	uuid "github.com/satori/go.uuid"
 )
 
 var tpl *template.Template
@@ -16,52 +21,66 @@ func init() {
 
 func main() {
 	http.HandleFunc("/", index)
+	// add route to serve pictures
+	http.Handle("/public/", http.StripPrefix("/public", http.FileServer(http.Dir("./public"))))
 	http.Handle("/favicon.ico", http.NotFoundHandler())
 	http.ListenAndServe(":8080", nil)
 }
 
-func index(res http.ResponseWriter, req *http.Request) {
-	c := getCookie(res, req)
-	c = appendFileNames(res, req)
+func index(w http.ResponseWriter, req *http.Request) {
+	c := getCookie(w, req)
+	if req.Method == http.MethodPost {
+		mf, fh, err := req.FormFile("nf")
+		if err != nil {
+			fmt.Println(err)
+		}
+		defer mf.Close()
+		// create sha for file name
+		ext := strings.Split(fh.Filename, ".")[1]
+		h := sha1.New()
+		io.Copy(h, mf)
+		fname := fmt.Sprintf("%x", h.Sum(nil)) + "." + ext
+		// create new file
+		wd, err := os.Getwd()
+		if err != nil {
+			fmt.Println(err)
+		}
+		path := filepath.Join(wd, "public", "pics", fname)
+		nf, err := os.Create(path)
+		if err != nil {
+			fmt.Println(err)
+		}
+		defer nf.Close()
+		// copy
+		mf.Seek(0, 0)
+		io.Copy(nf, mf)
+		// add filename to this user's cookie
+		c = appendValue(w, c, fname)
+	}
 	xs := strings.Split(c.Value, "|")
-	tpl.ExecuteTemplate(res, "index.gohtml", xs)
+	// sliced cookie values to only send over images
+	tpl.ExecuteTemplate(w, "index.gohtml", xs[1:])
 }
 
-func getCookie(res http.ResponseWriter, req *http.Request) *http.Cookie {
+func getCookie(w http.ResponseWriter, req *http.Request) *http.Cookie {
 	c, err := req.Cookie("session")
 	if err != nil {
-		sID := uuid.New()
-		c := &http.Cookie{
+		sID, _ := uuid.NewV4()
+		c = &http.Cookie{
 			Name:  "session",
 			Value: sID.String(),
 		}
-		http.SetCookie(res, c)
-		return c
+		http.SetCookie(w, c)
 	}
 	return c
 }
 
-func appendFileNames(res http.ResponseWriter, req *http.Request) *http.Cookie {
-	c, _ := req.Cookie("session")
-	p1 := "sunset.jpg"
-	p2 := "beach.jpg"
-	p3 := "night.jpg"
-
+func appendValue(w http.ResponseWriter, c *http.Cookie, fname string) *http.Cookie {
 	s := c.Value
-
-	if !strings.Contains(s, p1) {
-		s += "|" + p1
+	if !strings.Contains(s, fname) {
+		s += "|" + fname
 	}
-
-	if !strings.Contains(s, p2) {
-		s += "|" + p2
-	}
-
-	if !strings.Contains(s, p3) {
-		s += "|" + p3
-	}
-
 	c.Value = s
-	http.SetCookie(res, c)
+	http.SetCookie(w, c)
 	return c
 }
