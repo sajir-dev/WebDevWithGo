@@ -2,20 +2,25 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
+	"strconv"
 	"text/template"
 	"time"
+
+	_ "github.com/go-sql-driver/mysql"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
+// var db *sql.DB
+// var err error
+
 type user struct {
 	Username string
 	Password []byte
-	First    string
-	Last     string
+	Name     string
+	Age      string
 }
 
 type session struct {
@@ -26,32 +31,32 @@ type session struct {
 var tpl *template.Template
 var dbUsers = map[string]user{}
 var dbSessions = map[string]session{}
-var dbSessionsCleaned time.Time
-
-const sessionLength int = 30
 
 func init() {
 	tpl = template.Must(template.ParseGlob("templates/*"))
-	dbSessionsCleaned = time.Now()
+	// db, err = sql.Open("mysql", "admin:password@tcp(database-2.cfd81motzhjs.ap-south-1.rds.amazonaws.com:3306)/new_schema01?charset=utf8")
+	// if err != nil {
+	// 	fmt.Println("Could not establish database connection")
+	// 	log.Fatalln(err)
+	// 	panic(err)
+	// } else {
+	// 	fmt.Println("db connection success")
+	// }
+
 }
 
 func main() {
 	http.HandleFunc("/", index)
 	http.HandleFunc("/signup", signup)
 	http.HandleFunc("/login", login)
-	http.HandleFunc("/bar", bar)
 	http.HandleFunc("/logout", logout)
-	http.Handle("/favicon.ico", http.NotFoundHandler())
+	http.HandleFunc("/bar", bar)
 	http.ListenAndServe(":8080", nil)
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
 	u := getUser(w, r)
-	err := tpl.ExecuteTemplate(w, "index.gohtml", u)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	// fmt.Fprint(w, "at index")
+	tpl.ExecuteTemplate(w, "index.gohtml", u)
 }
 
 func signup(w http.ResponseWriter, r *http.Request) {
@@ -59,34 +64,25 @@ func signup(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
-	// fmt.Fprint(w, "at signup")
-	err := tpl.ExecuteTemplate(w, "signup.gohtml", nil)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
 	var u user
-
+	// catching form
 	if r.Method == http.MethodPost {
 		un := r.FormValue("username")
 		p := r.FormValue("password")
-		f := r.FormValue("first")
-		l := r.FormValue("last")
-
+		f := r.FormValue("name")
+		a := r.FormValue("age")
+		fmt.Println(un, p, f, a)
 		// username taken?
 		if _, ok := dbUsers[un]; ok {
 			http.Error(w, "Username already taken", http.StatusForbidden)
 			return
 		}
-
 		// create session
 		sID := uuid.New()
 		c := &http.Cookie{
 			Name:  "session",
 			Value: sID.String(),
 		}
-		c.MaxAge = sessionLength
-		fmt.Println(c)
 		http.SetCookie(w, c)
 		dbSessions[c.Value] = session{un, time.Now()}
 		// store user in dbUsers
@@ -95,69 +91,66 @@ func signup(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
-		u = user{un, bs, f, l}
+		u = user{un, bs, f, a}
 		dbUsers[un] = u
+
+		// stmt, err := db.Prepare(`INSERT INTO users VALUES (" ` + un + `,` + string(bs) + `,` + f + `,` + a + `");`)
+		// fmt.Println(stmt)
+		// if err != nil {
+		// 	http.Error(w, "could not create user", http.StatusInternalServerError)
+		// }
+		// defer stmt.Close()
+
 		// redirect
-		// http.Redirect(w, r, "/", http.StatusSeeOther)
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
+	tpl.ExecuteTemplate(w, "signup.gohtml", u)
+
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
 	if alreadyLoggedIn(w, r) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
 	}
-	err := tpl.ExecuteTemplate(w, "login.gohtml", nil)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	// fmt.Fprint(w, "at login")
-	// process form submission
+	var u user
 	if r.Method == http.MethodPost {
 		un := r.FormValue("username")
 		p := r.FormValue("password")
-		// is there a username?
+		// is there a usename?
 		u, ok := dbUsers[un]
 		if !ok {
 			http.Error(w, "Username and/or password do not match", http.StatusForbidden)
 			return
 		}
-		// match password
+		// does the entered password match the stored password?
 		err := bcrypt.CompareHashAndPassword(u.Password, []byte(p))
 		if err != nil {
-			http.Error(w, "Username and/or Password did not match", http.StatusForbidden)
+			http.Error(w, "Username and/or password do not match", http.StatusForbidden)
 			return
 		}
+		// create session
 		sID := uuid.New()
 		c := &http.Cookie{
 			Name:  "session",
 			Value: sID.String(),
 		}
-		c.MaxAge = sessionLength
 		http.SetCookie(w, c)
 		dbSessions[c.Value] = session{un, time.Now()}
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
-}
-
-func bar(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "at the bar")
+	tpl.ExecuteTemplate(w, "login.gohtml", u)
 }
 
 func logout(w http.ResponseWriter, r *http.Request) {
-	// fmt.Fprint(w, "at logout")
-	// http.Redirect(w, r, "/", http.StatusSeeOther)
-
 	if !alreadyLoggedIn(w, r) {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
 	}
-
-	// get the cookie from request
 	c, _ := r.Cookie("session")
-	// delete session from dbSessions
 	delete(dbSessions, c.Value)
-	// remove the cookie
 	c = &http.Cookie{
 		Name:   "session",
 		Value:  "",
@@ -165,12 +158,42 @@ func logout(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, c)
 
-	//cleanup dbSessions
-	if time.Now().Sub(dbSessionsCleaned) > (time.Second * 30) {
-		go cleanSessions()
-	}
-
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
+}
+
+func bar(w http.ResponseWriter, r *http.Request) {
+	if !alreadyLoggedIn(w, r) {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	u := getUser(w, r)
+	age, _ := strconv.Atoi(dbUsers[u.Username].Age)
+	if age < 18 {
+		fmt.Fprintln(w, "You are not allowed into the bar")
+	} else {
+		fmt.Fprintln(w, "Come take your virtual drinks")
+	}
+}
+
+func getUser(w http.ResponseWriter, r *http.Request) user {
+	var u user
+	c, err := r.Cookie("session")
+	if err != nil {
+		sID := uuid.New()
+		c = &http.Cookie{
+			Name:  "session",
+			Value: sID.String(),
+		}
+	}
+	http.SetCookie(w, c)
+
+	if s, ok := dbSessions[c.Value]; ok {
+		s.lastActivity = time.Now()
+		dbSessions[c.Value] = s
+		u = dbUsers[s.un]
+	}
+	fmt.Println(u)
+	return u
 }
 
 func alreadyLoggedIn(w http.ResponseWriter, r *http.Request) bool {
@@ -181,41 +204,10 @@ func alreadyLoggedIn(w http.ResponseWriter, r *http.Request) bool {
 	s, ok := dbSessions[c.Value]
 	if ok {
 		s.lastActivity = time.Now()
-		dbSessions[c.Value] = s
+		// dbSessions[c.Value] = s
 	}
 	_, ok = dbUsers[s.un]
-	// refresh session
-	c.MaxAge = sessionLength
+	// c.MaxAge = sessionLength
 	http.SetCookie(w, c)
 	return ok
-}
-
-func cleanSessions() {
-	for k, v := range dbSessions {
-		if time.Now().Sub(v.lastActivity) > (time.Second * 30) {
-			delete(dbSessions, k)
-		}
-	}
-	dbSessionsCleaned = time.Now()
-}
-
-func getUser(w http.ResponseWriter, r *http.Request) user {
-	c, err := r.Cookie("session")
-	if err != nil {
-		sID := uuid.New()
-		c = &http.Cookie{
-			Name:  "session",
-			Value: sID.String(),
-		}
-	}
-	c.MaxAge = sessionLength
-	http.SetCookie(w, c)
-
-	var u user
-	if s, ok := dbSessions[c.Value]; ok {
-		s.lastActivity = time.Now()
-		dbSessions[c.Value] = s
-		u = dbUsers[s.un]
-	}
-	return u
 }
