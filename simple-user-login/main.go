@@ -24,6 +24,8 @@ var tpl *template.Template
 var db *sql.DB
 var err error
 
+// var dbSessions = map[string]string{}
+
 // const iota = 10000
 
 func init() {
@@ -44,7 +46,8 @@ func main() {
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "at index")
+	// fmt.Fprintln(w, "at index")
+
 }
 
 func signup(w http.ResponseWriter, r *http.Request) {
@@ -72,17 +75,25 @@ func signup(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(s)
 		stmt, err := db.Prepare(s)
 		if err != nil {
-			http.Error(w, "Could not save data - prepare", http.StatusInternalServerError)
+			http.Error(w, "Could not connect with server", http.StatusInternalServerError)
 			return
 		}
 
 		rows, err := stmt.Exec()
 		if err != nil {
-			http.Error(w, "Could not save data - exec", http.StatusInternalServerError)
+			http.Error(w, "Username already exists", http.StatusInternalServerError)
 			return
 		}
 
 		fmt.Println(rows)
+
+		// sID, _:= uuid.New()
+		// c := &http.Cookie{
+		// 	Name: "session",
+		// 	Value: sID.String(),
+		// }
+		// http.SetCookie(w, c)
+		// dbSessions[c.Value] = un
 
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 
@@ -145,3 +156,22 @@ func login(w http.ResponseWriter, r *http.Request) {
 
 	tpl.ExecuteTemplate(w, "login.gohtml", nil)
 }
+
+// getUser(w http.ResponseWriter, r *http.Request){
+// 	c, err := r.Cookie("session")
+// 	if err != nil {
+// 		sID, _ := uuid.New()
+// 		c = &http.Cookie {
+// 			Name : "session",
+// 			Value: sID.String(),
+// 		}
+// 	}
+// 	http.SetCookie(w, c)
+
+// 	var u User
+
+// 	if un, ok := dbSessions[c.Value];ok {
+// 		row, err := db.Query(`SELECT password FROM users03 WHERE username = "` + un + `";`)
+
+// 	}
+// }
