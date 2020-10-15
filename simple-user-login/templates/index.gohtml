@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Document</title>
+</head>
+<body>
+{{if .Name}}
+USER NAME {{.Username}}<br>
+PASSWORD {{.Password}}<br>
+Name {{.Name}}<br>
+Age {{.Age}}<br>
+<a href="/logout">logout</a><br>
+{{else}}
+<h3><a href="/signup">sign up</a></h3>
+{{end}}
+</body>
+</html>

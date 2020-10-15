@@ -9,6 +9,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/google/uuid"
 )
 
 // User ...
@@ -24,7 +25,9 @@ var tpl *template.Template
 var db *sql.DB
 var err error
 
-// var dbSessions = map[string]string{}
+var dbSessions = map[string]string{}
+
+var userdata User
 
 // const iota = 10000
 
@@ -34,7 +37,8 @@ func init() {
 
 func main() {
 
-	db, err = sql.Open("mysql", "admin:password@tcp(database-4-go-signup-project.cfd81motzhjs.ap-south-1.rds.amazonaws.com)/users_schema02?charset=utf8")
+	// db, err = sql.Open("mysql", "admin:password@tcp(database-4-go-signup-project.cfd81motzhjs.ap-south-1.rds.amazonaws.com)/users_schema02?charset=utf8")
+	db, err = sql.Open("mysql", "root:password@tcp(127.0.0.1:3309)/testusers")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -47,7 +51,7 @@ func main() {
 
 func index(w http.ResponseWriter, r *http.Request) {
 	// fmt.Fprintln(w, "at index")
-
+	tpl.ExecuteTemplate(w, "index.gohtml", userdata)
 }
 
 func signup(w http.ResponseWriter, r *http.Request) {
@@ -69,9 +73,9 @@ func signup(w http.ResponseWriter, r *http.Request) {
 		// fmt.Println(un, p, n, a)
 		bs, _ := bcrypt.GenerateFromPassword([]byte(p), bcrypt.MinCost)
 
-		userdata := User{un, bs, n, a}
+		userdata = User{un, bs, n, a}
 		fmt.Println(userdata)
-		s := `INSERT INTO users03 VALUES ` + `("` + userdata.Username + `", "` + string(userdata.Password) + `", "` + userdata.Name + `", "` + userdata.Age + `");`
+		s := `INSERT INTO users VALUES ` + `("` + userdata.Username + `", "` + string(userdata.Password) + `", "` + userdata.Name + `", "` + userdata.Age + `");`
 		fmt.Println(s)
 		stmt, err := db.Prepare(s)
 		if err != nil {
@@ -87,21 +91,22 @@ func signup(w http.ResponseWriter, r *http.Request) {
 
 		fmt.Println(rows)
 
-		// sID, _:= uuid.New()
-		// c := &http.Cookie{
-		// 	Name: "session",
-		// 	Value: sID.String(),
-		// }
-		// http.SetCookie(w, c)
-		// dbSessions[c.Value] = un
+		sID := uuid.New()
+		c := &http.Cookie{
+			Name:  "session",
+			Value: sID.String(),
+		}
+		http.SetCookie(w, c)
+		dbSessions[c.Value] = un
 
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 
 	}
-	tpl.ExecuteTemplate(w, "signup.gohtml", nil)
+	tpl.ExecuteTemplate(w, "signup.gohtml", userdata)
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
+	s := "Username and/or password is incorrect"
 	if r.Method == http.MethodPost {
 		un := r.FormValue("username")
 		p := r.FormValue("password")
@@ -115,7 +120,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 		// u, err := db.Query(`SELECT password FROM users WHERE username = "` + username + `";`)
 		row, err := db.Query(`SELECT password FROM users03 WHERE username = "` + un + `";`)
 		if err != nil {
-			fmt.Println("Username and/or password is incorrect")
+			fmt.Println(s)
 			return
 		}
 
@@ -123,7 +128,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 		row.Next()
 		err = row.Scan(&password)
 		if err != nil {
-			fmt.Println("Username and/or password is incorrect")
+			fmt.Println(s)
 			fmt.Fprintln(w, "Username and/or password is incorrect")
 			return
 		}
