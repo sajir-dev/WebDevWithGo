@@ -46,11 +46,14 @@ func main() {
 	http.HandleFunc("/", index)
 	http.HandleFunc("/login", login)
 	http.HandleFunc("/signup", signup)
+	http.HandleFunc("/logout", signup)
 	http.ListenAndServe(":8080", nil)
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
 	// fmt.Fprintln(w, "at index")
+	userdata = getUser(w, r)
+	// fmt.Println("getUser Called")
 	tpl.ExecuteTemplate(w, "index.gohtml", userdata)
 }
 
@@ -99,6 +102,7 @@ func signup(w http.ResponseWriter, r *http.Request) {
 		http.SetCookie(w, c)
 		dbSessions[c.Value] = un
 
+		// getUser(w, r)
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 
 	}
@@ -106,7 +110,18 @@ func signup(w http.ResponseWriter, r *http.Request) {
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
-	s := "Username and/or password is incorrect"
+
+	if alreadyLoggedIn(r) {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		fmt.Println("logged in")
+		return
+	}
+	// s := "Username and/or password is incorrect"
+	// userdata = getUser(w, r)
+	// if userdata.Name == nil {
+	// 	http.Redirect(w, r, "/", http.StatusSeeOther)
+	// 	return
+	// }
 	if r.Method == http.MethodPost {
 		un := r.FormValue("username")
 		p := r.FormValue("password")
@@ -118,17 +133,17 @@ func login(w http.ResponseWriter, r *http.Request) {
 
 		// var u user
 		// u, err := db.Query(`SELECT password FROM users WHERE username = "` + username + `";`)
-		row, err := db.Query(`SELECT password FROM users03 WHERE username = "` + un + `";`)
+		pw, err := db.Query(`SELECT password FROM users WHERE username = "` + un + `";`)
 		if err != nil {
-			fmt.Println(s)
+			fmt.Println("Username and/or password is incorrect")
 			return
 		}
 
 		// fmt.Printf("%v \n, %T \n", row, row)
-		row.Next()
-		err = row.Scan(&password)
+		pw.Next()
+		err = pw.Scan(&password)
 		if err != nil {
-			fmt.Println(s)
+			fmt.Println("Username and/or password is incorrect")
 			fmt.Fprintln(w, "Username and/or password is incorrect")
 			return
 		}
@@ -136,10 +151,13 @@ func login(w http.ResponseWriter, r *http.Request) {
 		err = bcrypt.CompareHashAndPassword([]byte(password), []byte(p))
 		if err != nil {
 			fmt.Println(err)
-			fmt.Println("Wrong credentials")
+			fmt.Fprintln(w, "Username and/or password is incorrect")
+			return
 		}
 
-		fmt.Printf("password: %v", password)
+		row := db.QueryRow(`SELECT * FROM users where username ="` + un + `";`)
+		row.Scan(&userdata.Username, &userdata.Password, &userdata.Name, &userdata.Age)
+		// fmt.Printf("password: %v", password)
 		// sqlStatement := `SELECT * FROM users WHERE username=$1;`
 		// row := db.QueryRow(sqlStatement, un)
 		// switch err := row.Scan(&email, &password, &name, &age); err {
@@ -157,9 +175,10 @@ func login(w http.ResponseWriter, r *http.Request) {
 		// 	return
 		// }
 		// fmt.Println(email, password, name, age)
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 	}
 
-	tpl.ExecuteTemplate(w, "login.gohtml", nil)
+	tpl.ExecuteTemplate(w, "login.gohtml", userdata)
 }
 
 // getUser(w http.ResponseWriter, r *http.Request){
@@ -180,3 +199,61 @@ func login(w http.ResponseWriter, r *http.Request) {
 
 // 	}
 // }
+
+func logout(w http.ResponseWriter, r *http.Request) {
+	c, _ := r.Cookie("session")
+	delete(dbSessions, c.Value)
+	c = &http.Cookie{
+		Name:   "session",
+		Value:  c.Value,
+		MaxAge: -1,
+	}
+	http.SetCookie(w, c)
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
+}
+
+func getUser(w http.ResponseWriter, r *http.Request) User {
+	// fmt.Println("inside getUser")
+	c, err := r.Cookie("session")
+	if err != nil {
+		sID := uuid.New()
+		c = &http.Cookie{
+			Name:  "session",
+			Value: sID.String(),
+		}
+	}
+	fmt.Println(c)
+	http.SetCookie(w, c)
+
+	un, ok := dbSessions[c.Value]
+	if !ok {
+		fmt.Println("user not logged")
+		return userdata
+	}
+
+	row := db.QueryRow(`SELECT * FROM users WHERE username= "` + un + `"`)
+	// if err != nil {
+	// 	fmt.Println("no user in db")
+	// 	return userdata
+	// }
+
+	row.Scan(&userdata.Username, &userdata.Password, &userdata.Name, &userdata.Age)
+	fmt.Println(userdata)
+
+	return userdata
+}
+
+func alreadyLoggedIn(r *http.Request) bool {
+	c, err := r.Cookie("session")
+	if err != nil {
+		return false
+	}
+
+	un := dbSessions[c.Value]
+	row := db.QueryRow(`SELECT * FROM users WHERE username= "` + un + `"`)
+	row.Scan(&userdata.Username, &userdata.Password, &userdata.Name, &userdata.Age)
+	if un == userdata.Username {
+		return true
+	}
+	return false
+}
