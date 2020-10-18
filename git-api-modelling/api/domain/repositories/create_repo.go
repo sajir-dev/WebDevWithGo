@@ -1,6 +1,10 @@
 package repositories
 
-import "strings"
+import (
+	"strings"
+
+	"../../utils/errors"
+)
 
 type CreateRepoRequest struct {
 	Name        string `json:"string"`
