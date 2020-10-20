@@ -10,7 +10,7 @@ func StartApp() {
 	router := gin.Default()
 
 	router.GET("/item/:id", controllers.GetItem)
-	router.POST("/item/:id", controllers.PostItem)
+	router.POST("/item/post", controllers.PostItem)
 
 	router.Run(":8080")
 }

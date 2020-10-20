@@ -1,6 +1,9 @@
 package domain
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 var (
 	items = map[string]*Item{
@@ -28,6 +31,9 @@ func PostItem(itemID string, category string, price float64, rating float32) boo
 	}
 
 	items[itemID] = itemStruct
+
+	fmt.Println(items)
+
 	if _, ok := items[itemID]; ok {
 		return ok
 	}

@@ -44,6 +44,7 @@ func PostItem(c *gin.Context) {
 	status := services.PostItem(itemid, category, price, rating)
 	if status {
 		c.String(http.StatusOK, "item added successfully")
+		return
 	}
 	c.String(http.StatusNotFound, "operation could not be completed")
 }
