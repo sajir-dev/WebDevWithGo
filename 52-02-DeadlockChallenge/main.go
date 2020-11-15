@@ -17,7 +17,7 @@ func main() {
 		for i := 0; i < 10; i++ {
 			c <- i
 		}
-		// close(c)
+		close(c)
 	}()
 
 	for n := range c {
