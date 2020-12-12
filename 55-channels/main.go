@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"runtime"
 )
 
 // func main() {
@@ -57,22 +56,44 @@ import (
 // 	return c
 // }
 
+// func main() {
+// 	c := make(chan int)
+
+// 	go func() {
+// 		for i := 0; i < 10; i++ {
+// 			fmt.Println("In goroutine:", i)
+// 			c <- i
+// 		}
+// 		close(c)
+// 		fmt.Println("1.", runtime.NumCPU())
+// 		fmt.Println("2.", runtime.NumGoroutine())
+// 	}()
+
+// 	for v := range c {
+// 		fmt.Println("3.", runtime.NumCPU())
+// 		fmt.Println("4.", runtime.NumGoroutine())
+// 		fmt.Println("In main:", v)
+// 	}
+// }
+
 func main() {
 	c := make(chan int)
 
-	go func() {
-		for i := 0; i < 10; i++ {
-			fmt.Println("In goroutine:", i)
-			c <- i
-		}
-		close(c)
-		fmt.Println("1.", runtime.NumCPU())
-		fmt.Println("2.", runtime.NumGoroutine())
-	}()
+	for i := 1; i < 10; i++ {
+		go func(k int) {
+			acc := 1
+			for j := 1; j <= k; j++ {
+				acc *= j
+			}
+			c <- acc
+		}(i)
+	}
 
-	for v := range c {
-		fmt.Println("3.", runtime.NumCPU())
-		fmt.Println("4.", runtime.NumGoroutine())
-		fmt.Println("In main:", v)
+	// for v := range c {
+	// 	fmt.Println(v)
+	// }
+
+	for i := 0; i < 10; i++ {
+		fmt.Println(<-c)
 	}
 }
