@@ -17,10 +17,8 @@ func naiveSearch(ss []byte, s []byte) bool {
 			if s[j] != ss[i+j] {
 				break
 			}
-			// fmt.Println("#2", i, j)
-			i++
-			j++
-			if j == len(s) {
+			fmt.Println("#2", i, j)
+			if j == len(s)-1 {
 				// fmt.Println("#3", i, j)
 				return true
 			}
